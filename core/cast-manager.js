@@ -53,10 +53,10 @@ const DEFAULT_LIMITS = {
  *    - 其他角色可以退场
  * 5. 确保各层不超过数量上限
  * 
- * @param {import("../core/engine-state.js").CeCastLayer} currentCast - 当前 Cast 状态
+ * @param {import("./engine-state.js").CeCastLayer} currentCast - 当前 Cast 状态
  * @param {CastIntent} castIntent - Cast 变更意图
  * @param {ApplyCastIntentOptions} [options] - 配置选项
- * @returns {import("../core/engine-state.js").CeCastLayer} 新的 Cast 状态
+ * @returns {import("./engine-state.js").CeCastLayer} 新的 Cast 状态
  */
 export function applyCastIntent(currentCast, castIntent, options = {}) {
   const {
@@ -196,7 +196,7 @@ export function applyCastIntent(currentCast, castIntent, options = {}) {
 /**
  * 根据角色名称获取其在 Cast 中的层级。
  * 
- * @param {import("../core/engine-state.js").CeCastLayer} cast - Cast 状态
+ * @param {import("./engine-state.js").CeCastLayer} cast - Cast 状态
  * @param {string} characterName - 角色名称
  * @returns {"focus"|"presentSupporting"|"offstageRelated"|null} 角色所在层级，若不在 Cast 中则返回 null
  */
@@ -223,11 +223,11 @@ export function getCharacterLayer(cast, characterName) {
  * 如果角色不在 Cast 中，则添加到指定层级。
  * 如果角色已在更高层级，则不做改变。
  * 
- * @param {import("../core/engine-state.js").CeCastLayer} cast - Cast 状态
+ * @param {import("./engine-state.js").CeCastLayer} cast - Cast 状态
  * @param {string} characterName - 角色名称
  * @param {"focus"|"presentSupporting"|"offstageRelated"} targetLayer - 目标层级
  * @param {CastLimits} [limits] - Cast 各层的数量上限
- * @returns {import("../core/engine-state.js").CeCastLayer} 新的 Cast 状态
+ * @returns {import("./engine-state.js").CeCastLayer} 新的 Cast 状态
  */
 export function promoteCharacterTo(cast, characterName, targetLayer, limits = DEFAULT_LIMITS) {
   const newCast = {
@@ -282,7 +282,7 @@ export function promoteCharacterTo(cast, characterName, targetLayer, limits = DE
 /**
  * 获取 Cast 中所有角色的名称列表（按层级顺序）。
  * 
- * @param {import("../core/engine-state.js").CeCastLayer} cast - Cast 状态
+ * @param {import("./engine-state.js").CeCastLayer} cast - Cast 状态
  * @returns {string[]} 所有角色名称
  */
 export function getAllCharactersInCast(cast) {
@@ -301,7 +301,7 @@ export function getAllCharactersInCast(cast) {
 /**
  * 创建一个空的 Cast 状态。
  * 
- * @returns {import("../core/engine-state.js").CeCastLayer}
+ * @returns {import("./engine-state.js").CeCastLayer}
  */
 export function createEmptyCast() {
   return {
