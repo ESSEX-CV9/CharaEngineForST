@@ -146,7 +146,21 @@ export function buildParsePromptInput(chat, currentState = null) {
     let line = `- **${p.name}** (${typeLabel}, ${scopeDesc})`;
     if (desc) line += `\n  说明：${desc}`;
     line += `\n  路径格式：${pathFormat}`;
-    line += `\n  使用示例：ce.set('${pathExample}', ...)`;
+    
+    // 为文本类型参数添加详细的格式说明
+    if (p.type === "text") {
+      const textHint = p.textHint || "";
+      if (textHint) {
+        line += `\n  格式要求：${textHint}`;
+        line += `\n  使用示例：ce.set('${pathExample}', '${textHint}')`;
+      } else {
+        line += `\n  使用示例：ce.set('${pathExample}', '具体的文本内容')`;
+      }
+      line += `\n  ⚠️ 注意：文本参数需要提供完整的文本内容，请严格按照格式要求填写`;
+    } else {
+      line += `\n  使用示例：ce.set('${pathExample}', ...)`;
+    }
+    
     if (boundEntities.length > 0) {
       line += `\n  绑定实体：${boundEntities.join(', ')}`;
     }
@@ -347,7 +361,21 @@ ${paramLines.join("\n\n")}`
     let line = `- **${p.name}** (${typeLabel}, ${scopeDesc})`;
     if (desc) line += `\n  说明：${desc}`;
     line += `\n  路径格式：${pathFormat}`;
-    line += `\n  使用示例：ce.set('${pathExample}', ...)`;
+    
+    // 为文本类型参数添加详细的格式说明
+    if (p.type === "text") {
+      const textHint = p.textHint || "";
+      if (textHint) {
+        line += `\n  格式要求：${textHint}`;
+        line += `\n  使用示例：ce.set('${pathExample}', '${textHint}')`;
+      } else {
+        line += `\n  使用示例：ce.set('${pathExample}', '具体的文本内容')`;
+      }
+      line += `\n  ⚠️ 注意：文本参数需要提供完整的文本内容，请严格按照格式要求填写`;
+    } else {
+      line += `\n  使用示例：ce.set('${pathExample}', ...)`;
+    }
+    
     if (boundEntities.length > 0) {
       line += `\n  绑定实体：${boundEntities.join(', ')}`;
     }
@@ -396,14 +424,34 @@ ${paramLinesWithPhases.join("\n\n")}`
    - 根据上述参数列表，判断哪些参数在本轮对话中受到影响
    - 在 <CE_UpdateState> 块中使用 ce.set() 格式表达变化
    - **严格遵守每个参数的路径格式**（单段/两段/三段）
-   - 对于数值类参数，使用符号化操作：up_small, up_medium, up_large, down_small, down_medium, down_large
-   - 对于文本/标签类参数，直接设置具体值
-   - **【重要】对于短期情绪/短期意图参数**：
-     * 必须使用**描述性的一句话或简短说明**，而非简单词汇
-     * ✅ 正确示例：ce.set('艾莉娅.短期情绪', '因为玩家刚才的话感到愤怒和委屈，觉得对方完全不理解自己的感受')
-     * ❌ 错误示例：ce.set('艾莉娅.短期情绪', '愤怒')
-     * 短期情绪应包含：情绪原因、具体感受、心理状态的细腻描述
-     * 短期意图应包含：行动倾向、目的、预期效果的完整说明`);
+   
+   **参数类型操作规则：**
+   
+   a) **数值类参数**：使用符号化操作
+      - 符号操作：up_small, up_medium, up_large, down_small, down_medium, down_large
+      - 示例：ce.set('小樱.好感度', 'up_medium', '因为玩家的温柔话语')
+   
+   b) **枚举类参数**：使用 next/prev 或直接设置枚举值
+      - 示例：ce.set('小樱.关系阶段', 'next') 或 ce.set('小樱.关系阶段', '暧昧期')
+   
+   c) **布尔类参数**：直接设置 true 或 false
+      - 示例：ce.set('小樱.是否知道真相', 'true')
+   
+   d) **文本类参数**：直接设置完整的文本内容
+      - **核心原则：每次都必须传输完整的文本内容，而非增量修改**
+      - **必须严格按照参数的"格式要求"字段来组织文本内容**
+      - 示例：假设当前值为 "苹果, 香蕉"，要添加 "橙子"
+        * ❌ 错误：ce.set('物品列表', '橙子')  // 这会覆盖掉原有内容
+        * ✅ 正确：ce.set('物品列表', '苹果, 香蕉, 橙子')  // 必须包含所有物品
+      - ⚠️ 重要：文本参数不支持增量操作，每次设置都会完全替换原有内容
+      - 💡 建议：在修改前先查看"当前参数状态"中的现有值，然后基于现有值构建新的完整文本
+   
+   e) **【特别重要】短期情绪/短期意图参数**（也是文本类型）：
+      - 必须使用**描述性的一句话或简短说明**，而非简单词汇
+      - ✅ 正确示例：ce.set('艾莉娅.短期情绪', '因为玩家刚才的话感到愤怒和委屈，觉得对方完全不理解自己的感受')
+      - ❌ 错误示例：ce.set('艾莉娅.短期情绪', '愤怒')
+      - 短期情绪应包含：情绪原因、具体感受、心理状态的细腻描述
+      - 短期意图应包含：行动倾向、目的、预期效果的完整说明`);
   }
 
   // 场景与cast管理（仅在启用时出现）
@@ -451,9 +499,11 @@ ${paramLinesWithPhases.join("\n\n")}`
 
   <VarChange>
     ce.set('{路径}', '{操作或值}', '{可选说明}')
-    // 请参考上面的参数列表，使用正确的路径格式
-    // 操作符号：up_small, up_medium, up_large, down_small, down_medium, down_large
-    // 或直接设置值（对于文本/标签类参数）
+    // 请参考上面的参数列表，使用正确的路径格式和操作方式
+    // 数值类：up_small, up_medium, up_large, down_small, down_medium, down_large
+    // 枚举类：next, prev, 或直接设置枚举值
+    // 布尔类：true, false
+    // 文本类：完整的文本内容（严格按照参数的格式要求填写）
   </VarChange>
 </CE_UpdateState>`);
   }

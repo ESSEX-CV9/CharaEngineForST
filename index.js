@@ -5,6 +5,7 @@ import { openCeStateObserverPanel } from "./ui/state-observer.js";
 import { openParseApiSettings } from "./ui/parse-api-settings.js";
 import { ceGenerateInterceptor } from "./orchestration/interceptor.js";
 import { getCallGenerateService, handleGenerateRequest } from "./services/call-generate.js";
+import { getDataReaderService } from "./services/data-reader.js";
 import { showAlert } from "./ui/dialogs.js";
 
 // ⭐ 条件导入RAG子系统
@@ -430,6 +431,49 @@ if (typeof window !== 'undefined') {
   window.CharacterEngine._internal.handleGenerateRequest = handleGenerateRequest;
   
   logDebug("全局 API 已注册: window.CharacterEngine.callGenerate");
+  
+  // ===== 全局 API 暴露：CharacterEngine.dataReader =====
+  
+  const dataReaderService = getDataReaderService();
+  
+  /**
+   * 数据读取 API
+   * 提供只读接口访问角色引擎的配置和状态数据
+   *
+   * @example
+   * // 获取参数定义
+   * const params = window.CharacterEngine.dataReader.getParameters();
+   *
+   * // 获取当前状态
+   * const state = window.CharacterEngine.dataReader.getCurrentState();
+   *
+   * // 获取特定参数值
+   * const affection = window.CharacterEngine.dataReader.getParameterValue('好感度', '艾莉娅', '玩家');
+   */
+  window.CharacterEngine.dataReader = {
+    // 参数和实体定义
+    getParameters: () => dataReaderService.getParameters(),
+    getEntities: () => dataReaderService.getEntities(),
+    
+    // 状态读取
+    getCurrentState: (options) => dataReaderService.getCurrentState(options),
+    getStateAtIndex: (index) => dataReaderService.getStateAtIndex(index),
+    getInitialState: () => dataReaderService.getInitialState(),
+    getParameterValue: (paramName, subjectName, targetName, options) =>
+      dataReaderService.getParameterValue(paramName, subjectName, targetName, options),
+    getSceneInfo: (options) => dataReaderService.getSceneInfo(options),
+    
+    // 元信息查询
+    getMessageCount: () => dataReaderService.getMessageCount(),
+    getLastAiMessageIndex: () => dataReaderService.getLastAiMessageIndex(),
+    getLastUserMessageIndex: () => dataReaderService.getLastUserMessageIndex(),
+    getCheckpointInfo: () => dataReaderService.getCheckpointInfo()
+  };
+  
+  // 保留内部接口（用于调试和高级用法）
+  window.CharacterEngine._internal.dataReaderService = dataReaderService;
+  
+  logDebug("全局 API 已注册: window.CharacterEngine.dataReader");
 }
 
 // 入口初始化：尽早注册事件
