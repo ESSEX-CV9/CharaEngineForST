@@ -107,10 +107,11 @@ export function getOrCreateEngineMeta(chatId = "") {
 
     // 4. 如果 greeting 中有初始化参数，合并到 initialState
     if (greetingChangeSet) {
-      // 获取参数定义以支持符号化操作
+      // 获取参数定义、实体定义和 Cast 配置
       const parameterDefs = Array.isArray(charConfig.parameters) ? charConfig.parameters : [];
       const entityDefs = Array.isArray(charConfig.entities) ? charConfig.entities : [];
-      initialState = applyChangeSet(initialState, greetingChangeSet, parameterDefs, entityDefs);
+      const castConfig = charConfig?.options?.castConfig || null;
+      initialState = applyChangeSet(initialState, greetingChangeSet, parameterDefs, entityDefs, castConfig);
       
       // 将 greetingChangeSet 绑定到 greeting 消息，便于状态观察器显示
       const chat = getChat();
@@ -423,10 +424,11 @@ export function rebuildEngineStateUpTo(targetIndex) {
     startIndex = runtimeMeta.lastComputedMessageIndex + 1;
   }
 
-  // 获取参数定义和实体定义以支持符号化操作和 Cast 验证
+  // 获取参数定义、实体定义和 Cast 配置
   const charConfig = getConfigForCurrentCharacter();
   const parameterDefs = Array.isArray(charConfig.parameters) ? charConfig.parameters : [];
   const entityDefs = Array.isArray(charConfig.entities) ? charConfig.entities : [];
+  const castConfig = charConfig?.options?.castConfig || null;
 
   let current = baseState;
   const upper = Math.min(targetIndex, chat.length - 1);
@@ -439,7 +441,7 @@ export function rebuildEngineStateUpTo(targetIndex) {
     const cs = getChangeSetForIndex(i);
     if (!cs) continue;
 
-    current = applyChangeSet(current, cs, parameterDefs, entityDefs);
+    current = applyChangeSet(current, cs, parameterDefs, entityDefs, castConfig);
   }
 
   return current;

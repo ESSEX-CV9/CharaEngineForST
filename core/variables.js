@@ -2,15 +2,24 @@
 // 注意：本模块不依赖 SillyTavern，只提供纯数据结构和工具函数。
 
 /**
+ * @typedef {Object} CeArrayConfig
+ * @property {"string"|"number"|"boolean"|"object"} itemType  // 数组元素类型
+ * @property {number} [maxLength]  // 可选：数组最大长度限制
+ * @property {Object.<string, {type: string, required?: boolean, default?: any}>} [itemSchema]  // 当 itemType 为 object 时的对象结构定义
+ */
+
+/**
  * @typedef {Object} CeParameterDefinition
  * @property {string} name              // 作者/LLM 看到的参数名，例如 "好感度"
  * @property {string} id                // 引擎内部 ID，例如 "affection"；若作者未给，内部可生成
- * @property {"number"|"boolean"|"enum"|"text"} type
+ * @property {"number"|"boolean"|"enum"|"text"|"array"} type
  * @property {"character"|"relationship"|"scene"|"global"} [scope] // 参数作用域：character=角色自身，relationship=需要目标实体，scene=场景级，global=全局级
  * @property {boolean} [isShortTerm]    // 标记是否为短期参数（短期情绪/意图等），短期参数会在每轮对话后自动重置
  * @property {string} [description]     // 人类可读解释，解析模型用来理解含义
  * @property {{ min?: number, max?: number }} [range]  // 数值型可选范围
  * @property {string[]} [enumValues]    // 枚举型的可选值列表（名称同样面向作者/LLM）
+ * @property {CeArrayConfig} [arrayConfig]  // 数组型参数的配置
+ * @property {string} [textHint]        // 文本型参数的格式提示
  */
 
 /**

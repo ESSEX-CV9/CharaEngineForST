@@ -217,10 +217,13 @@ function buildCurrentEngineState(chat, parseChangeSet) {
   let engineState = rebuildEngineStateUpTo(targetIndex);
   
   if (parseChangeSet) {
-    // 获取参数定义以支持符号化操作
+    // 获取参数定义和 Cast 配置
     const charConfig = getConfigForCurrentCharacter();
     const parameterDefs = Array.isArray(charConfig.parameters) ? charConfig.parameters : [];
-    engineState = applyChangeSet(engineState, parseChangeSet, parameterDefs);
+    const entityDefs = Array.isArray(charConfig.entities) ? charConfig.entities : [];
+    const castConfig = charConfig?.options?.castConfig || null;
+    
+    engineState = applyChangeSet(engineState, parseChangeSet, parameterDefs, entityDefs, castConfig);
   }
   
   return engineState;

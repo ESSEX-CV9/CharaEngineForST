@@ -49,14 +49,43 @@ function extractXmlBlock(text, tagName) {
  */
 function parseCeSetCall(line) {
   // 匹配: ce.set('路径', '操作或值', '可选注释')
+  // 支持三种格式：
+  // 1. ce.set('path', 'value', 'comment')
+  // 2. ce.set('path', 'value')
+  // 3. ce.set('path', JSON对象) - 用于数组操作
+  
+  // 首先尝试匹配带JSON对象的格式（用于数组操作的复杂值）
+  const jsonMatch = line.match(/ce\.set\s*\(\s*['"]([^'"]+)['"]\s*,\s*(\{[^}]+\}|\[[^\]]+\])\s*(?:,\s*['"]([^'"]*)['"]\s*)?\)/);
+  if (jsonMatch) {
+    const [, path, jsonValue, comment] = jsonMatch;
+    try {
+      const parsedValue = JSON.parse(jsonValue);
+      return {
+        path: path.trim(),
+        op: 'set',
+        value: parsedValue,
+        symbol: undefined,
+        meta: comment ? { reason: comment.trim() } : undefined
+      };
+    } catch (err) {
+      // JSON解析失败，继续尝试其他格式
+    }
+  }
+  
+  // 标准格式匹配
   const match = line.match(/ce\.set\s*\(\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]\s*(?:,\s*['"]([^'"]*)['"]\s*)?\)/);
   if (!match) return null;
 
   const [, path, opOrValue, comment] = match;
   
   // 判断是符号化操作还是直接值
-  const symbolicOps = ['up_small', 'up_medium', 'up_large', 'down_small', 'down_medium', 'down_large'];
-  const isSymbolic = symbolicOps.includes(opOrValue) || opOrValue.startsWith('set_');
+  const symbolicOps = ['up_small', 'up_medium', 'up_large', 'down_small', 'down_medium', 'down_large', 'next', 'prev', 'previous'];
+  const arrayOps = ['add_item', 'remove_where', 'clear', 'set'];
+  const isSymbolic = symbolicOps.includes(opOrValue) ||
+                     arrayOps.includes(opOrValue) ||
+                     opOrValue.startsWith('set_') ||
+                     opOrValue.startsWith('remove_at:') ||
+                     opOrValue.startsWith('update_at:');
   
   return {
     path: path.trim(),

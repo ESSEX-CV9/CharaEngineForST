@@ -230,9 +230,230 @@ function clampToRange(value, range) {
 }
 
 /**
+ * 将符号化操作应用到数组型参数，返回具体的数组操作结果
+ *
+ * @param {string} symbol - 符号操作名，如 "add_item", "remove_at:1", "clear" 等
+ * @param {any[]} currentValue - 当前数组值
+ * @param {CeParameterDefinition} paramDef - 参数定义
+ * @param {CeVariableOp} variableOp - 完整的变量操作对象（用于获取额外参数）
+ * @returns {{ op: "set", value: any[], meta?: any }}
+ *   - op: 始终为 "set"（数组操作总是替换整个数组）
+ *   - value: 操作后的新数组
+ *   - meta: 可选的元信息（如操作类型、影响的元素数量等）
+ */
+export function resolveSymbolicForArray(symbol, currentValue, paramDef, variableOp) {
+  if (!symbol || typeof symbol !== "string") {
+    return { op: "set", value: currentValue, meta: { operationType: "none" } };
+  }
+
+  const sym = symbol.trim().toLowerCase();
+  const currentArray = Array.isArray(currentValue) ? currentValue : [];
+  const arrayConfig = paramDef?.arrayConfig || {};
+  const maxLength = arrayConfig.maxLength;
+
+  // 处理 add_item 操作：添加元素到数组末尾
+  if (sym === "add_item") {
+    const itemValue = variableOp.value;
+    if (itemValue === undefined) {
+      return { op: "set", value: currentArray, meta: { operationType: "add_item", error: "缺少要添加的元素值" } };
+    }
+
+    // 检查最大长度限制
+    if (maxLength && currentArray.length >= maxLength) {
+      return {
+        op: "set",
+        value: currentArray,
+        meta: { operationType: "add_item", error: `已达到最大长度限制 ${maxLength}` }
+      };
+    }
+
+    const newArray = [...currentArray, itemValue];
+    return {
+      op: "set",
+      value: newArray,
+      meta: { operationType: "add_item", addedCount: 1 }
+    };
+  }
+
+  // 处理 remove_at 操作：按索引删除元素
+  const removeAtMatch = /^remove_at:?(\d+)$/i.exec(sym);
+  if (removeAtMatch) {
+    const index = parseInt(removeAtMatch[1], 10);
+    if (index < 0 || index >= currentArray.length) {
+      return {
+        op: "set",
+        value: currentArray,
+        meta: { operationType: "remove_at", error: `索引 ${index} 超出范围` }
+      };
+    }
+
+    const newArray = currentArray.filter((_, i) => i !== index);
+    return {
+      op: "set",
+      value: newArray,
+      meta: { operationType: "remove_at", removedCount: 1, removedIndex: index }
+    };
+  }
+
+  // 处理 remove_where 操作：按条件删除元素
+  if (sym === "remove_where") {
+    const condition = variableOp.value;
+    if (!condition || typeof condition !== "object") {
+      return {
+        op: "set",
+        value: currentArray,
+        meta: { operationType: "remove_where", error: "缺少有效的条件对象" }
+      };
+    }
+
+    const newArray = currentArray.filter(item => !matchCondition(item, condition));
+    const removedCount = currentArray.length - newArray.length;
+    return {
+      op: "set",
+      value: newArray,
+      meta: { operationType: "remove_where", removedCount }
+    };
+  }
+
+  // 处理 update_at 操作：更新指定索引的元素
+  const updateAtMatch = /^update_at:?(\d+)$/i.exec(sym);
+  if (updateAtMatch) {
+    const index = parseInt(updateAtMatch[1], 10);
+    if (index < 0 || index >= currentArray.length) {
+      return {
+        op: "set",
+        value: currentArray,
+        meta: { operationType: "update_at", error: `索引 ${index} 超出范围` }
+      };
+    }
+
+    const newValue = variableOp.value;
+    if (newValue === undefined) {
+      return {
+        op: "set",
+        value: currentArray,
+        meta: { operationType: "update_at", error: "缺少要更新的值" }
+      };
+    }
+
+    const newArray = currentArray.map((item, i) => i === index ? newValue : item);
+    return {
+      op: "set",
+      value: newArray,
+      meta: { operationType: "update_at", updatedIndex: index }
+    };
+  }
+
+  // 处理 clear 操作：清空数组
+  if (sym === "clear") {
+    return {
+      op: "set",
+      value: [],
+      meta: { operationType: "clear", clearedCount: currentArray.length }
+    };
+  }
+
+  // 处理 set 操作：直接设置整个数组
+  if (sym === "set" || sym.startsWith("set_")) {
+    const newArray = variableOp.value;
+    if (!Array.isArray(newArray)) {
+      return {
+        op: "set",
+        value: currentArray,
+        meta: { operationType: "set", error: "提供的值不是数组" }
+      };
+    }
+
+    // 检查最大长度限制
+    if (maxLength && newArray.length > maxLength) {
+      return {
+        op: "set",
+        value: newArray.slice(0, maxLength),
+        meta: { operationType: "set", truncated: true, originalLength: newArray.length, maxLength }
+      };
+    }
+
+    return {
+      op: "set",
+      value: newArray,
+      meta: { operationType: "set" }
+    };
+  }
+
+  // 未知操作，保持不变
+  return {
+    op: "set",
+    value: currentArray,
+    meta: { operationType: "unknown", error: `未知的数组操作: ${symbol}` }
+  };
+}
+
+/**
+ * 匹配条件辅助函数：用于 remove_where 操作
+ * @param {any} item - 数组元素
+ * @param {Object} condition - 条件对象，格式如 { field: "name", op: "equals", value: "test" }
+ * @returns {boolean}
+ */
+function matchCondition(item, condition) {
+  if (!condition || typeof condition !== "object") {
+    return false;
+  }
+
+  const field = condition.field;
+  const op = condition.op || "equals";
+  const expectedValue = condition.value;
+
+  // 获取字段值
+  let actualValue = item;
+  if (field && typeof item === "object" && item !== null) {
+    actualValue = item[field];
+  }
+
+  // 执行比较
+  switch (op) {
+    case "equals":
+    case "==":
+      return actualValue === expectedValue;
+    case "not_equals":
+    case "!=":
+      return actualValue !== expectedValue;
+    case "contains":
+      if (typeof actualValue === "string") {
+        return actualValue.includes(expectedValue);
+      }
+      if (Array.isArray(actualValue)) {
+        return actualValue.includes(expectedValue);
+      }
+      return false;
+    case "not_contains":
+      if (typeof actualValue === "string") {
+        return !actualValue.includes(expectedValue);
+      }
+      if (Array.isArray(actualValue)) {
+        return !actualValue.includes(expectedValue);
+      }
+      return true;
+    case "gt":
+    case ">":
+      return typeof actualValue === "number" && actualValue > expectedValue;
+    case "gte":
+    case ">=":
+      return typeof actualValue === "number" && actualValue >= expectedValue;
+    case "lt":
+    case "<":
+      return typeof actualValue === "number" && actualValue < expectedValue;
+    case "lte":
+    case "<=":
+      return typeof actualValue === "number" && actualValue <= expectedValue;
+    default:
+      return false;
+  }
+}
+
+/**
  * 将符号化操作解析为具体的数值操作
  * 这是对外的统一入口，会根据参数类型自动选择合适的解析策略
- * 
+ *
  * @param {CeVariableOp} variableOp - 变量操作对象
  * @param {number|string|boolean|any} currentValue - 当前参数值
  * @param {CeParameterDefinition} paramDef - 参数定义
@@ -274,6 +495,16 @@ export function resolveSymbolicOperation(variableOp, currentValue, paramDef) {
       op: result.op,
       value: result.value,
       meta: { moved: result.moved }
+    };
+  }
+
+  if (paramType === "array") {
+    const arrayValue = Array.isArray(currentValue) ? currentValue : [];
+    const result = resolveSymbolicForArray(symbol, arrayValue, paramDef, variableOp);
+    return {
+      op: result.op,
+      value: result.value,
+      meta: result.meta
     };
   }
 

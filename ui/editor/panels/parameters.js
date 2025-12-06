@@ -75,7 +75,8 @@ export function renderParameters(root, parameters) {
       number: "数值型",
       boolean: "布尔",
       enum: "枚举",
-      text: "文本"
+      text: "文本",
+      array: "数组"
     }[type] || "数值型";
 
     // 作用域显示文本
@@ -150,6 +151,27 @@ function buildParameterBodyContent(p, type, scope) {
         <span class="ce-param-boolean-hint">true / false</span>
       </div>
     `;
+  } else if (type === "array") {
+    const arrayConfig = p.arrayConfig || {};
+    const itemType = arrayConfig.itemType || "string";
+    const maxLength = arrayConfig.maxLength || "";
+    rangeCellHtml = `
+      <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+        <label style="display: flex; align-items: center; gap: 6px;">
+          <span class="ce-form-label" style="white-space: nowrap;">元素类型：</span>
+          <select data-ce-field="arrayItemType" style="flex: 1;">
+            <option value="string"${itemType === "string" ? " selected" : ""}>字符串</option>
+            <option value="number"${itemType === "number" ? " selected" : ""}>数值</option>
+            <option value="boolean"${itemType === "boolean" ? " selected" : ""}>布尔</option>
+            <option value="object"${itemType === "object" ? " selected" : ""}>对象</option>
+          </select>
+        </label>
+        <label style="display: flex; align-items: center; gap: 6px;">
+          <span class="ce-form-label" style="white-space: nowrap;">最大长度：</span>
+          <input type="number" data-ce-field="arrayMaxLength" value="${escapeHtml(String(maxLength))}" placeholder="不限制" min="0" style="flex: 1;"/>
+        </label>
+      </div>
+    `;
   } else {
     const textHint = typeof p.textHint === "string" ? p.textHint : "";
     rangeCellHtml = `
@@ -178,6 +200,7 @@ function buildParameterBodyContent(p, type, scope) {
             <option value="boolean"${type === "boolean" ? " selected" : ""}>布尔</option>
             <option value="enum"${type === "enum" ? " selected" : ""}>枚举</option>
             <option value="text"${type === "text" ? " selected" : ""}>文本</option>
+            <option value="array"${type === "array" ? " selected" : ""}>数组</option>
           </select>
         </label>
         <label style="flex: 1;">
@@ -276,6 +299,23 @@ export function collectParameters(root) {
       if (hint) {
         param.textHint = hint;
       }
+    } else if (type === "array") {
+      const itemTypeEl = /** @type {HTMLSelectElement|null} */ (card.querySelector('[data-ce-field="arrayItemType"]'));
+      const maxLengthEl = getInput("arrayMaxLength");
+      
+      const arrayConfig = {
+        itemType: itemTypeEl?.value || "string"
+      };
+      
+      const maxLengthStr = maxLengthEl?.value.trim() || "";
+      if (maxLengthStr !== "" && !Number.isNaN(Number(maxLengthStr))) {
+        const maxLen = Number(maxLengthStr);
+        if (maxLen > 0) {
+          arrayConfig.maxLength = maxLen;
+        }
+      }
+      
+      param.arrayConfig = arrayConfig;
     }
 
     list.push(param);
@@ -384,43 +424,62 @@ function onParameterPanelChange(ev) {
         number: "数值型",
         boolean: "布尔",
         enum: "枚举",
-        text: "文本"
+        text: "文本",
+        array: "数组"
       }[type] || "数值型";
       badges[0].textContent = typeText;
     }
 
-  if (type === "number") {
-    dynamicField.innerHTML = `
-      <label style="flex: 1; display: flex; align-items: center; gap: 6px;">
-        <span class="ce-form-label" style="white-space: nowrap;">范围：</span>
-        <div class="ce-range-row" style="flex: 1;">
-          <input type="number" data-ce-field="rangeMin" placeholder="最小" class="ce-input-number-small" style="max-width: none; flex: 1;" />
-          <span class="ce-range-sep">~</span>
-          <input type="number" data-ce-field="rangeMax" placeholder="最大" class="ce-input-number-small" style="max-width: none; flex: 1;" />
+    if (type === "number") {
+      dynamicField.innerHTML = `
+        <label style="flex: 1; display: flex; align-items: center; gap: 6px;">
+          <span class="ce-form-label" style="white-space: nowrap;">范围：</span>
+          <div class="ce-range-row" style="flex: 1;">
+            <input type="number" data-ce-field="rangeMin" placeholder="最小" class="ce-input-number-small" style="max-width: none; flex: 1;" />
+            <span class="ce-range-sep">~</span>
+            <input type="number" data-ce-field="rangeMax" placeholder="最大" class="ce-input-number-small" style="max-width: none; flex: 1;" />
+          </div>
+        </label>
+      `;
+    } else if (type === "enum") {
+      dynamicField.innerHTML = `
+        <label style="flex: 1; display: flex; align-items: center; gap: 6px;">
+          <span class="ce-form-label" style="white-space: nowrap;">枚举值：</span>
+          <input type="text" data-ce-field="enumValues" placeholder="用逗号分隔" style="flex: 1;"/>
+        </label>
+      `;
+    } else if (type === "boolean") {
+      dynamicField.innerHTML = `
+        <div style="flex: 1; display: flex; align-items: center; gap: 6px;">
+          <span class="ce-form-label" style="white-space: nowrap;">取值：</span>
+          <span class="ce-param-boolean-hint">true / false</span>
         </div>
-      </label>
-    `;
-  } else if (type === "enum") {
-    dynamicField.innerHTML = `
-      <label style="flex: 1; display: flex; align-items: center; gap: 6px;">
-        <span class="ce-form-label" style="white-space: nowrap;">枚举值：</span>
-        <input type="text" data-ce-field="enumValues" placeholder="用逗号分隔" style="flex: 1;"/>
-      </label>
-    `;
-  } else if (type === "boolean") {
-    dynamicField.innerHTML = `
-      <div style="flex: 1; display: flex; align-items: center; gap: 6px;">
-        <span class="ce-form-label" style="white-space: nowrap;">取值：</span>
-        <span class="ce-param-boolean-hint">true / false</span>
-      </div>
-    `;
-  } else if (type === "text") {
-    dynamicField.innerHTML = `
-      <label style="flex: 1; display: flex; align-items: center; gap: 6px;">
-        <span class="ce-form-label" style="white-space: nowrap;">说明：</span>
-        <input type="text" data-ce-field="textHint" placeholder="文本参数说明" style="flex: 1;"/>
-      </label>
-    `;
+      `;
+    } else if (type === "array") {
+      dynamicField.innerHTML = `
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+          <label style="display: flex; align-items: center; gap: 6px;">
+            <span class="ce-form-label" style="white-space: nowrap;">元素类型：</span>
+            <select data-ce-field="arrayItemType" style="flex: 1;">
+              <option value="string">字符串</option>
+              <option value="number">数值</option>
+              <option value="boolean">布尔</option>
+              <option value="object">对象</option>
+            </select>
+          </label>
+          <label style="display: flex; align-items: center; gap: 6px;">
+            <span class="ce-form-label" style="white-space: nowrap;">最大长度：</span>
+            <input type="number" data-ce-field="arrayMaxLength" placeholder="不限制" min="0" style="flex: 1;"/>
+          </label>
+        </div>
+      `;
+    } else if (type === "text") {
+      dynamicField.innerHTML = `
+        <label style="flex: 1; display: flex; align-items: center; gap: 6px;">
+          <span class="ce-form-label" style="white-space: nowrap;">说明：</span>
+          <input type="text" data-ce-field="textHint" placeholder="文本参数说明" style="flex: 1;"/>
+        </label>
+      `;
     }
   } else if (field === "scope") {
     // 更新作用域徽章
@@ -476,6 +535,7 @@ function addEmptyParameterRow(panel) {
             <option value="boolean">布尔</option>
             <option value="enum">枚举</option>
             <option value="text">文本</option>
+            <option value="array">数组</option>
           </select>
         </label>
         <label style="flex: 1;">

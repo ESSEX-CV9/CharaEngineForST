@@ -921,18 +921,7 @@ function renderEngineOverview(engineState, charConfig, currentCharacterName) {
 
       <div class="ce-debug-panel-section">
         <div class="ce-debug-panel-section-title">cast 层级</div>
-        <div class="ce-debug-panel-kv">
-          <div class="ce-debug-panel-kv-key">focus</div>
-          <div class="ce-debug-panel-kv-value">${escapeHtml((cast.focus || []).join(", "))}</div>
-        </div>
-        <div class="ce-debug-panel-kv">
-          <div class="ce-debug-panel-kv-key">presentSupporting</div>
-          <div class="ce-debug-panel-kv-value">${escapeHtml((cast.presentSupporting || []).join(", "))}</div>
-        </div>
-        <div class="ce-debug-panel-kv">
-          <div class="ce-debug-panel-kv-key">offstageRelated</div>
-          <div class="ce-debug-panel-kv-value">${escapeHtml((cast.offstageRelated || []).join(", "))}</div>
-        </div>
+        ${renderCastWithLimits(cast, charConfig)}
       </div>
 
       <div class="ce-debug-panel-section">
@@ -1046,9 +1035,26 @@ function resolveShortTermForOverview(charConfig, engineState) {
 function formatParamValue(val) {
   if (val === undefined) return "(未找到对应变量)";
   if (val === null) return "null";
-  if (typeof val === "number" || typeof val === "boolean" || typeof val === "string") {
+  if (typeof val === "number" || typeof val === "boolean") {
     return String(val);
   }
+  if (typeof val === "string") {
+    // 字符串类型：如果过长则截断
+    return val.length > 100 ? val.substring(0, 100) + "..." : val;
+  }
+  if (Array.isArray(val)) {
+    // 数组类型：显示长度和前几个元素
+    if (val.length === 0) {
+      return "[]（空数组）";
+    }
+    if (val.length <= 3) {
+      return JSON.stringify(val);
+    }
+    // 超过3个元素，只显示前3个 + 总数
+    const preview = val.slice(0, 3);
+    return `[${preview.map(v => JSON.stringify(v)).join(', ')}, ...] (共${val.length}项)`;
+  }
+  // 其他对象类型
   return JSON.stringify(val);
 }
 
@@ -1525,4 +1531,55 @@ function registerStEventListeners() {
 
   eventListenersRegistered = true;
   logDebug("SillyTavern 事件监听器已注册");
+}
+
+/**
+ * 渲染 Cast 信息（包含上限和使用情况）
+ * @param {Object} cast - Cast 状态
+ * @param {Object} charConfig - 角色配置
+ * @returns {string}
+ */
+function renderCastWithLimits(cast, charConfig) {
+  // 获取配置的上限
+  const castConfig = charConfig?.options?.castConfig || {};
+  const characterCast = castConfig.characterCast || {};
+  const maxFocus = characterCast.maxFocus ?? 3;
+  const maxSupporting = characterCast.maxPresentSupporting ?? 5;
+  const maxOffstage = characterCast.maxOffstageRelated ?? 10;
+  
+  // 获取当前使用情况
+  const focusCount = (cast.focus || []).length;
+  const supportingCount = (cast.presentSupporting || []).length;
+  const offstageCount = (cast.offstageRelated || []).length;
+  
+  // 判断是否超限（用于警告样式）
+  const focusOverLimit = focusCount > maxFocus;
+  const supportingOverLimit = supportingCount > maxSupporting;
+  const offstageOverLimit = offstageCount > maxOffstage;
+  
+  const focusStyle = focusOverLimit ? 'color:#d32f2f;font-weight:bold;' : '';
+  const supportingStyle = supportingOverLimit ? 'color:#d32f2f;font-weight:bold;' : '';
+  const offstageStyle = offstageOverLimit ? 'color:#d32f2f;font-weight:bold;' : '';
+  
+  return `
+    <div class="ce-debug-panel-kv">
+      <div class="ce-debug-panel-kv-key">focus <span style="font-size:0.85em;${focusStyle}">(${focusCount}/${maxFocus})</span></div>
+      <div class="ce-debug-panel-kv-value">${escapeHtml((cast.focus || []).join(", ") || "(空)")}</div>
+    </div>
+    <div class="ce-debug-panel-kv">
+      <div class="ce-debug-panel-kv-key">presentSupporting <span style="font-size:0.85em;${supportingStyle}">(${supportingCount}/${maxSupporting})</span></div>
+      <div class="ce-debug-panel-kv-value">${escapeHtml((cast.presentSupporting || []).join(", ") || "(空)")}</div>
+    </div>
+    <div class="ce-debug-panel-kv">
+      <div class="ce-debug-panel-kv-key">offstageRelated <span style="font-size:0.85em;${offstageStyle}">(${offstageCount}/${maxOffstage})</span></div>
+      <div class="ce-debug-panel-kv-value">${escapeHtml((cast.offstageRelated || []).join(", ") || "(空)")}</div>
+    </div>
+    ${(focusOverLimit || supportingOverLimit || offstageOverLimit) ? `
+      <div class="ce-debug-panel-kv" style="margin-top:8px;">
+        <div class="ce-debug-panel-kv-value" style="color:#d32f2f;font-size:0.9em;">
+          ⚠️ 警告：部分层级已超过配置上限
+        </div>
+      </div>
+    ` : ''}
+  `;
 }

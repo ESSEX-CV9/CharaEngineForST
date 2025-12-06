@@ -214,10 +214,20 @@ function applyVariableOperation(bucket, pathSegments, op, value, variableOp, par
 
       if (resolved && resolved.value !== undefined) {
         setNestedValue(bucket, pathSegments, resolved.value);
-        // eslint-disable-next-line no-console
-        console.debug(
-          `[CharacterEngine] 符号化操作成功：路径=[${pathSegments.join('.')}], ${currentValue} → ${resolved.value} (${variableOp.symbol})`
-        );
+        
+        // 为数组类型提供更详细的日志
+        if (paramDef.type === "array" && resolved.meta) {
+          // eslint-disable-next-line no-console
+          console.debug(
+            `[CharacterEngine] 数组操作成功：路径=[${pathSegments.join('.')}], 操作=${resolved.meta.operationType}, 详情=`,
+            resolved.meta
+          );
+        } else {
+          // eslint-disable-next-line no-console
+          console.debug(
+            `[CharacterEngine] 符号化操作成功：路径=[${pathSegments.join('.')}], ${JSON.stringify(currentValue)} → ${JSON.stringify(resolved.value)} (${variableOp.symbol})`
+          );
+        }
       }
     } catch (err) {
       // eslint-disable-next-line no-console
@@ -379,10 +389,18 @@ export function applyChangeSet(prevState, changeSet, parameterDefs = [], entityD
         parameterDefs
       ).filter(e => e.type === "character");
       
+      // 从 castConfig 中读取上限配置
+      const characterCastLimits = castConfig?.characterCast || {};
+      const limits = {
+        maxFocus: characterCastLimits.maxFocus ?? 3,
+        maxPresentSupporting: characterCastLimits.maxPresentSupporting ?? 5,
+        maxOffstageRelated: characterCastLimits.maxOffstageRelated ?? 10
+      };
+      
       next.cast = applyCastIntent(
         next.cast,
         sceneDelta.castIntent,
-        { availableCharacters }
+        { availableCharacters, limits }
       );
     }
 
@@ -397,10 +415,14 @@ export function applyChangeSet(prevState, changeSet, parameterDefs = [], entityD
         parameterDefs
       ).filter(e => e.type === "location");
       
+      // 从 castConfig 中读取地点上限配置
+      const locationCastLimits = castConfig?.locationCast || {};
+      const maxCandidate = locationCastLimits.maxCandidate ?? 10;
+      
       next.locationCast = applyLocationCastIntent(
         next.locationCast,
         sceneDelta.locationCastIntent,
-        { availableLocations, allowUnknownLocations: true }
+        { availableLocations, allowUnknownLocations: true, maxCandidate }
       );
       
       // 向后兼容：同步更新 scene.locationHint
