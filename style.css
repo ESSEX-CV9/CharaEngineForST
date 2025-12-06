@@ -10,6 +10,9 @@
 /* 模态框样式 - 弹窗基础布局、背景遮罩、缩放手柄等 */
 @import url('./styles/modal.css');
 
+/* 对话框样式 - ST风格的alert、confirm、prompt弹窗 */
+@import url('./styles/dialogs.css');
+
 /* 编辑器样式 - 标签页、楼层选择器、时间线视图等 */
 @import url('./styles/editor.css');
 

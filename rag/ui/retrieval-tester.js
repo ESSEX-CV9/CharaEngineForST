@@ -411,7 +411,7 @@ function bindRetrievalTesterEvents(modal) {
     const charConfig = getConfigForCurrentCharacter();
     const loreConfig = loadLoreConfig(charConfig);
     loadFullRetrievalConfig(modal, loreConfig);
-    alert('已同步设定管理器的配置！');
+    showAlert('已同步设定管理器的配置！');
   });
   
   // 检索模式切换
@@ -470,7 +470,7 @@ async function handleTestRetrieval(modal) {
   const queryText = queryInput?.value.trim();
   
   if (!queryText) {
-    alert('请输入查询文本');
+    showAlert('请输入查询文本');
     return;
   }
   
@@ -479,7 +479,7 @@ async function handleTestRetrieval(modal) {
     .map(cb => cb.dataset.collectionId);
   
   if (selectedCollections.length === 0) {
-    alert('请至少选择一个已向量化的集合');
+    showAlert('请至少选择一个已向量化的集合');
     return;
   }
   

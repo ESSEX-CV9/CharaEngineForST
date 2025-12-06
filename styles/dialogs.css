@@ -1,0 +1,132 @@
+/* ST风格弹窗样式 */
+
+.ce-dialog-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: ce-dialog-fade-in 0.2s ease-out;
+}
+
+@keyframes ce-dialog-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.ce-dialog {
+  background: var(--SmartThemeBodyColor, #222);
+  border: 1px solid var(--SmartThemeBorderColor, #444);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  min-width: 320px;
+  max-width: 500px;
+  animation: ce-dialog-slide-in 0.2s ease-out;
+}
+
+@keyframes ce-dialog-slide-in {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.ce-dialog-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--SmartThemeBorderColor, #444);
+}
+
+.ce-dialog-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--SmartThemeEmColor, #fff);
+}
+
+.ce-dialog-body {
+  padding: 20px;
+}
+
+.ce-dialog-message {
+  color: var(--SmartThemeBodyColor, #ccc);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  margin-bottom: 0;
+}
+
+.ce-dialog-input,
+.ce-dialog-textarea {
+  width: 100%;
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: var(--black30a, rgba(0, 0, 0, 0.3));
+  border: 1px solid var(--SmartThemeBorderColor, #444);
+  border-radius: 4px;
+  color: var(--SmartThemeBodyColor, #ccc);
+  font-family: inherit;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.ce-dialog-input:focus,
+.ce-dialog-textarea:focus {
+  outline: none;
+  border-color: var(--SmartThemeQuoteColor, #666);
+  background: var(--black50a, rgba(0, 0, 0, 0.5));
+}
+
+.ce-dialog-textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.ce-dialog-footer {
+  padding: 16px 20px;
+  border-top: 1px solid var(--SmartThemeBorderColor, #444);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ce-dialog-footer .ce-btn {
+  min-width: 80px;
+}
+
+/* 特殊类型的弹窗样式调整 */
+.ce-dialog-textarea {
+  max-width: 600px;
+}
+
+.ce-dialog-textarea .ce-dialog-body {
+  padding: 20px;
+}
+
+.ce-dialog-textarea .ce-dialog-textarea {
+  min-height: 150px;
+}
+
+/* 响应式调整 */
+@media (max-width: 600px) {
+  .ce-dialog {
+    min-width: 280px;
+    max-width: 90vw;
+    margin: 0 20px;
+  }
+  
+  .ce-dialog-textarea {
+    max-width: 90vw;
+  }
+}

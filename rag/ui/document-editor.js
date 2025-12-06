@@ -17,13 +17,13 @@ export function openDocumentEditor(collectionId, onSave) {
   const loreConfig = charConfig.loreConfig;
   
   if (!loreConfig) {
-    alert('未找到 loreConfig 配置');
+    showAlert('未找到 loreConfig 配置');
     return;
   }
   
   const collection = getCollectionById(loreConfig, collectionId);
   if (!collection) {
-    alert('未找到指定的集合');
+    showAlert('未找到指定的集合');
     return;
   }
   
@@ -253,8 +253,8 @@ function handleToggleDocument(modal, docIndex) {
  * @param {HTMLElement} modal
  * @param {Object} collection
  */
-function handleAddDocument(modal, collection) {
-  const title = prompt('请输入文档标题:');
+async function handleAddDocument(modal, collection) {
+  const title = await showPrompt('请输入文档标题:');
   if (!title) return;
   
   const newDoc = {
@@ -283,14 +283,14 @@ function handleAddDocument(modal, collection) {
  * @param {Object} collection
  * @param {string} docIndex
  */
-function handleDeleteDocument(modal, collection, docIndex) {
+async function handleDeleteDocument(modal, collection, docIndex) {
   const index = parseInt(docIndex);
   if (isNaN(index) || index < 0 || index >= collection.documents.length) {
     return;
   }
   
   const doc = collection.documents[index];
-  if (!confirm(`确定要删除文档"${doc.title || '未命名'}"吗？`)) {
+  if (!(await showConfirm(`确定要删除文档"${doc.title || '未命名'}"吗？`))) {
     return;
   }
   
@@ -334,7 +334,7 @@ function handleImportFile(modal, collection) {
         collection.documents.push(doc);
       } catch (err) {
         console.error(`导入文件失败: ${file.name}`, err);
-        alert(`导入文件失败: ${file.name}\n${err.message}`);
+        showAlert(`导入文件失败: ${file.name}\n${err.message}`);
       }
     }
     
@@ -379,7 +379,7 @@ async function handleSaveDocuments(modal, collection, onSave) {
     const updatedConfig = { ...charConfig, loreConfig };
     await saveConfigForCurrentCharacter(updatedConfig);
     
-    alert('文档已保存！');
+    showAlert('文档已保存！');
     
     if (onSave) {
       onSave();
@@ -388,7 +388,7 @@ async function handleSaveDocuments(modal, collection, onSave) {
     modal.remove();
   } catch (err) {
     console.error('[RAG DocumentEditor] 保存失败:', err);
-    alert(`保存失败: ${err.message}`);
+    showAlert(`保存失败: ${err.message}`);
   }
 }
 
@@ -449,7 +449,7 @@ async function handlePreviewChunking(modal, collection) {
   const documents = collectDocumentsFromUI(modal, collection);
   
   if (documents.length === 0) {
-    alert('没有文档可预览');
+    showAlert('没有文档可预览');
     return;
   }
   
@@ -473,7 +473,7 @@ async function handlePreviewDocChunks(modal, collection, docIndex) {
   const content = contentInput?.value || '';
   
   if (!content.trim()) {
-    alert('文档内容为空');
+    showAlert('文档内容为空');
     return;
   }
   
@@ -507,7 +507,7 @@ async function handleSuggestChunks(modal, collection, docIndex) {
   const content = contentInput?.value || '';
   
   if (!content.trim()) {
-    alert('文档内容为空');
+    showAlert('文档内容为空');
     return;
   }
   
@@ -515,7 +515,7 @@ async function handleSuggestChunks(modal, collection, docIndex) {
   const suggestions = suggestChunkPositions(content);
   
   if (suggestions.length === 0) {
-    alert('未找到合适的分块位置');
+    showAlert('未找到合适的分块位置');
     return;
   }
   
@@ -526,7 +526,7 @@ async function handleSuggestChunks(modal, collection, docIndex) {
       const delimiter = '---CHUNK---';
       const newContent = insertDelimitersAtPositions(content, selectedPositions, delimiter);
       contentInput.value = newContent;
-      alert(`已在 ${selectedPositions.length} 个位置插入分隔符`);
+      showAlert(`已在 ${selectedPositions.length} 个位置插入分隔符`);
     }
   });
   document.body.appendChild(suggestionModal);
@@ -547,11 +547,11 @@ async function handleInsertDelimiters(modal, collection, docIndex) {
   const content = contentInput?.value || '';
   
   if (!content.trim()) {
-    alert('文档内容为空');
+    showAlert('文档内容为空');
     return;
   }
   
-  const delimiter = prompt('请输入分隔符:', '---CHUNK---');
+  const delimiter = await showPrompt('请输入分隔符:', '---CHUNK---');
   if (!delimiter) return;
   
   // 获取光标位置或在末尾插入
@@ -559,7 +559,7 @@ async function handleInsertDelimiters(modal, collection, docIndex) {
   const newContent = content.substring(0, cursorPos) + '\n' + delimiter + '\n' + content.substring(cursorPos);
   contentInput.value = newContent;
   
-  alert('分隔符已插入');
+  showAlert('分隔符已插入');
 }
 
 /**

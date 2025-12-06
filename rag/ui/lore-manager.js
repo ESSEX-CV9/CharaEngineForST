@@ -1088,7 +1088,7 @@ function updateFusionConfigVisibility(modal) {
  * @param {HTMLElement} modal
  */
 async function handleNewCollection(modal) {
-  const name = prompt('请输入集合名称:');
+  const name = await showPrompt('请输入集合名称:');
   if (!name) return;
   
   hideMessage(modal);
@@ -1150,7 +1150,7 @@ async function handleVectorizeCollection(modal, collectionId) {
     return;
   }
   
-  if (!confirm(`确定要向量化集合"${collection.name}"吗？\n这可能需要几分钟时间。`)) {
+  if (!(await showConfirm(`确定要向量化集合"${collection.name}"吗？\n这可能需要几分钟时间。`))) {
     return;
   }
   
@@ -1205,8 +1205,8 @@ async function handleVectorizeCollection(modal, collectionId) {
  * @param {HTMLElement} modal
  * @param {string} collectionId
  */
-function handleDeleteCollection(modal, collectionId) {
-  if (!confirm('确定要删除此集合吗？此操作不可恢复。')) {
+async function handleDeleteCollection(modal, collectionId) {
+  if (!(await showConfirm('确定要删除此集合吗？此操作不可恢复。'))) {
     return;
   }
   
@@ -1601,7 +1601,7 @@ async function handleUseCachedModel(modal, modelId) {
  * @param {string} modelId
  */
 async function handleDeleteCachedModel(modal, modelId) {
-  if (!confirm(`确定要删除模型 ${modelId} 吗？\n删除后需要重新下载才能使用。`)) {
+  if (!(await showConfirm(`确定要删除模型 ${modelId} 吗？\n删除后需要重新下载才能使用。`))) {
     return;
   }
   
@@ -1705,8 +1705,8 @@ function createVectorizationProgressModal(collectionName) {
   `;
   
   // 绑定取消按钮
-  backdrop.querySelector('[data-action="cancel-vectorization"]')?.addEventListener('click', () => {
-    if (confirm('确定要取消向量化吗？')) {
+  backdrop.querySelector('[data-action="cancel-vectorization"]')?.addEventListener('click', async () => {
+    if (await showConfirm('确定要取消向量化吗？')) {
       cancelVectorization();
       backdrop.remove();
     }
@@ -2085,7 +2085,7 @@ function showImportDialog(parentModal, importData) {
         .map(cb => parseInt(cb.dataset.index));
       
       if (selectedIndices.length === 0) {
-        alert('请至少选择一个集合');
+        showAlert('请至少选择一个集合');
         return;
       }
       
@@ -2118,7 +2118,7 @@ function showImportDialog(parentModal, importData) {
  * 处理导出集合
  * @param {HTMLElement} modal
  */
-function handleExportCollections(modal) {
+async function handleExportCollections(modal) {
   const charConfig = getConfigForCurrentCharacter();
   const loreConfig = loadLoreConfig(charConfig);
   const collections = getLoreCollections(loreConfig);
@@ -2139,7 +2139,7 @@ function handleExportCollections(modal) {
   });
   message += '\n例如: 1,2,3 或 all（导出全部）';
   
-  const input = prompt(message);
+  const input = await showPrompt(message);
   
   if (!input) return;
   

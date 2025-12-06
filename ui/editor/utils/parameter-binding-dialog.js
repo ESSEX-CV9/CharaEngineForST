@@ -198,7 +198,7 @@ function renderBindingCards(listContainer, bindings, getAvailableParams, availab
 
   bindings.forEach((binding, index) => {
     const isNew = index === newIndex;
-    const card = createBindingCard(binding, index, getAvailableParams, availableEntities, isNew);
+    const card = createBindingCard(binding, index, getAvailableParams, availableEntities, bindings, isNew);
     listContainer.appendChild(card);
   });
 
@@ -210,7 +210,7 @@ function renderBindingCards(listContainer, bindings, getAvailableParams, availab
 /**
  * 创建单个绑定卡片
  */
-function createBindingCard(binding, index, getAvailableParams, availableEntities, isNew = false) {
+function createBindingCard(binding, index, getAvailableParams, availableEntities, allBindings, isNew = false) {
   const rowId = `binding-${index}`;
   
   // 获取参数列表（完整对象）
@@ -245,7 +245,7 @@ function createBindingCard(binding, index, getAvailableParams, availableEntities
   }
 
   // 卡片头部内容 - 添加紧凑编辑控件
-  const headerContent = buildBindingHeaderContent(binding, index, availableParams, typeText, targetText);
+  const headerContent = buildBindingHeaderContent(binding, index, availableParams, typeText, targetText, allBindings);
 
   // 卡片主体内容
   const bodyContent = buildBindingCardBody(binding, index, availableParams, availableEntities);
@@ -262,9 +262,20 @@ function createBindingCard(binding, index, getAvailableParams, availableEntities
 /**
  * 构建绑定卡片头部内容（包含紧凑编辑控件）
  */
-function buildBindingHeaderContent(binding, index, availableParams, typeText, targetText) {
-  const paramOptions = availableParams.length > 0
-    ? availableParams.map(p =>
+function buildBindingHeaderContent(binding, index, availableParams, typeText, targetText, allBindings) {
+  // 过滤掉已经被其他绑定使用的参数（但保留当前绑定的参数）
+  const usedParamNames = new Set(
+    allBindings
+      .filter((b, i) => i !== index && b.paramName) // 排除当前绑定和空参数名
+      .map(b => b.paramName)
+  );
+  
+  const filteredParams = availableParams.filter(p =>
+    !usedParamNames.has(p.name) || p.name === binding.paramName
+  );
+  
+  const paramOptions = filteredParams.length > 0
+    ? filteredParams.map(p =>
         `<option value="${escapeHtml(p.name)}"${p.name === binding.paramName ? ' selected' : ''}>${escapeHtml(p.name)}</option>`
       ).join('')
     : '';

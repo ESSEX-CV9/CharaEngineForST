@@ -23,6 +23,9 @@ let dragManager = null;
 /** @type {Set<string>} */
 let collapsedSet = new Set();
 
+// 排序模式：'custom' | 'owner' | 'type' | 'priority'
+let sortMode = 'custom';
+
 /**
  * 初始化提示条目面板 DOM 结构
  * @param {HTMLElement} panel
@@ -55,9 +58,18 @@ export function initPromptsPanel(panel) {
     <div class="ce-prompts-toolbar">
       <label>归属实体（ownerName）：<input type="text" data-ce-filter-owner placeholder="例如：当前角色名"/></label>
       <button type="button" class="ce-btn ce-btn-small" data-ce-action="filter-prompts">筛选</button>
+      <label style="margin-left: 12px;">
+        排序方式：
+        <select data-ce-sort-mode>
+          <option value="custom" selected>自定义（可拖拽）</option>
+          <option value="owner">按归属实体</option>
+          <option value="type">按提示类型</option>
+          <option value="priority">按优先级</option>
+        </select>
+      </label>
     </div>
     <div class="ce-prompts-container" data-ce-container="prompts"></div>
-    <div class="ce-small-hint">参数条件格式示例：<code>好感度 >= 60</code>，支持多个条件。提示条目的整体排序决定了同一提示类型下文本的拼接顺序，支持拖拽上下调整。</div>
+    <div class="ce-small-hint">参数条件格式示例：<code>好感度 >= 60</code>，支持多个条件。提示条目的整体排序决定了同一提示类型下文本的拼接顺序。自定义模式下支持拖拽调整顺序。</div>
   `;
 
   panel.addEventListener("click", onPromptsPanelClick);
@@ -97,6 +109,17 @@ export function initPromptsPanel(panel) {
         refreshPromptPagination(panel);
       });
     }
+  }
+
+  // 绑定排序模式切换事件
+  const sortModeSelect = /** @type {HTMLSelectElement|null} */ (
+    panel.querySelector('[data-ce-sort-mode]')
+  );
+  if (sortModeSelect) {
+    sortModeSelect.addEventListener("change", () => {
+      sortMode = sortModeSelect.value || 'custom';
+      applySortMode(panel);
+    });
   }
 }
 
@@ -156,6 +179,82 @@ export function updateOwnerNameSelects(root, getEntityNamesFn) {
 }
 
 /**
+ * 应用排序模式
+ * @param {HTMLElement} panel
+ */
+function applySortMode(panel) {
+  const container = panel.querySelector('[data-ce-container="prompts"]');
+  if (!container) return;
+
+  const cards = Array.from(container.querySelectorAll('.ce-collapsible-card'));
+  
+  // 根据排序模式对卡片进行排序
+  if (sortMode === 'owner') {
+    // 按归属实体排序
+    cards.sort((a, b) => {
+      const ownerA = (a.querySelector('[data-ce-field="ownerName"]'))?.value.trim().toLowerCase() || '';
+      const ownerB = (b.querySelector('[data-ce-field="ownerName"]'))?.value.trim().toLowerCase() || '';
+      return ownerA.localeCompare(ownerB, 'zh-CN');
+    });
+  } else if (sortMode === 'type') {
+    // 按提示类型排序
+    cards.sort((a, b) => {
+      const typeA = (a.querySelector('[data-ce-field="promptTypeName"]'))?.value.trim().toLowerCase() || '';
+      const typeB = (b.querySelector('[data-ce-field="promptTypeName"]'))?.value.trim().toLowerCase() || '';
+      return typeA.localeCompare(typeB, 'zh-CN');
+    });
+  } else if (sortMode === 'priority') {
+    // 按优先级排序（数值越小越靠前）
+    cards.sort((a, b) => {
+      const priorityA = Number((a.querySelector('[data-ce-field="priority"]'))?.value) || 100;
+      const priorityB = Number((b.querySelector('[data-ce-field="priority"]'))?.value) || 100;
+      return priorityA - priorityB;
+    });
+  } else if (sortMode === 'custom') {
+    // 自定义模式：按 customOrder 排序（恢复原始顺序）
+    cards.sort((a, b) => {
+      const orderA = Number(a.dataset.customOrder) || 999999;
+      const orderB = Number(b.dataset.customOrder) || 999999;
+      return orderA - orderB;
+    });
+  }
+
+  // 重新插入排序后的卡片（所有模式都需要重新排列）
+  cards.forEach(card => container.appendChild(card));
+
+  // 更新拖拽管理器状态
+  updateDragManagerState(sortMode === 'custom');
+  
+  // 刷新分页显示
+  refreshPromptPagination(panel);
+}
+
+/**
+ * 更新拖拽管理器状态
+ * @param {boolean} enabled - 是否启用拖拽
+ */
+function updateDragManagerState(enabled) {
+  if (!dragManager) return;
+  
+  if (enabled) {
+    dragManager.enable();
+    // 显示拖拽手柄
+    const handles = document.querySelectorAll('.ce-drag-handle');
+    handles.forEach(handle => {
+      handle.style.display = '';
+      handle.style.cursor = 'grab';
+    });
+  } else {
+    dragManager.disable();
+    // 隐藏拖拽手柄
+    const handles = document.querySelectorAll('.ce-drag-handle');
+    handles.forEach(handle => {
+      handle.style.display = 'none';
+    });
+  }
+}
+
+/**
  * 渲染提示条目数据
  * @param {HTMLElement} root
  * @param {Array} prompts
@@ -174,6 +273,20 @@ export function renderPrompts(root, prompts, promptTypes, collectParametersFn, g
   }
 
   container.innerHTML = "";
+
+  // 如果是自定义排序模式，按 customOrder 排序
+  let sortedPrompts = prompts || [];
+  if (sortMode === 'custom' && sortedPrompts.length > 0) {
+    // 检查是否有 customOrder 字段
+    const hasCustomOrder = sortedPrompts.some(p => typeof p.customOrder === 'number');
+    if (hasCustomOrder) {
+      sortedPrompts = [...sortedPrompts].sort((a, b) => {
+        const orderA = typeof a.customOrder === 'number' ? a.customOrder : 999999;
+        const orderB = typeof b.customOrder === 'number' ? b.customOrder : 999999;
+        return orderA - orderB;
+      });
+    }
+  }
 
   const paramDefsByName = buildParameterDefsByName(collectParametersFn());
 
@@ -207,12 +320,15 @@ export function renderPrompts(root, prompts, promptTypes, collectParametersFn, g
   });
   const promptTypeNames = Array.from(promptTypeNameSet);
 
-  (prompts || []).forEach((p, index) => {
-    const rowId = `prompt-${index}`;
-    const isCollapsed = collapsedSet.has(rowId) || collapsedSet.has(String(index));
+  sortedPrompts.forEach((p, renderIndex) => {
+    const rowId = `prompt-${renderIndex}`;
+    const isCollapsed = collapsedSet.has(rowId) || collapsedSet.has(String(renderIndex));
 
     const ownerName = p.ownerName || "";
     const promptTypeName = p.promptTypeName || "";
+    // 保持原始的 customOrder，如果没有则使用原始数组中的索引
+    const originalIndex = (prompts || []).indexOf(p);
+    const customOrder = typeof p.customOrder === 'number' ? p.customOrder : originalIndex;
     const conditionsText =
       typeof p.conditionsText === "string" && p.conditionsText.length > 0
         ? p.conditionsText
@@ -344,11 +460,24 @@ export function renderPrompts(root, prompts, promptTypes, collectParametersFn, g
       draggable: true
     });
 
+    // 存储原始的 customOrder 到 data 属性
+    card.dataset.customOrder = String(customOrder);
+
     container.appendChild(card);
   });
 
   promptCurrentPage = 1;
-  refreshPromptPagination(root);
+  
+  // 恢复排序模式选择器的值
+  const sortModeSelect = /** @type {HTMLSelectElement|null} */ (
+    root.querySelector('[data-ce-sort-mode]')
+  );
+  if (sortModeSelect) {
+    sortModeSelect.value = sortMode;
+  }
+  
+  // 应用当前排序模式
+  applySortMode(root);
 }
 
 /**
@@ -369,7 +498,7 @@ export function collectPrompts(root, collectParametersFn) {
 
   const paramDefsByName = buildParameterDefsByName(collectParametersFn());
 
-  cards.forEach((card) => {
+  cards.forEach((card, index) => {
     const ownerEl = /** @type {HTMLInputElement|null} */ (card.querySelector('[data-ce-field="ownerName"]'));
     const typeEl = /** @type {HTMLInputElement|null} */ (card.querySelector('[data-ce-field="promptTypeName"]'));
     const condEl = /** @type {HTMLTextAreaElement|null} */ (card.querySelector('[data-ce-field="conditions"]'));
@@ -412,13 +541,28 @@ export function collectPrompts(root, collectParametersFn) {
       }
     }
 
+    // 获取 customOrder：
+    // - 如果是自定义模式，使用当前 DOM 索引（因为用户可能拖拽过）
+    // - 如果是其他排序模式，使用存储的原始 customOrder
+    let customOrder = index;
+    if (sortMode !== 'custom') {
+      const storedOrder = card.dataset.customOrder;
+      if (storedOrder !== undefined) {
+        customOrder = Number(storedOrder);
+        if (isNaN(customOrder)) {
+          customOrder = index;
+        }
+      }
+    }
+
     list.push({
       ownerName,
       promptTypeName,
       text,
       when: conditions,
       conditionsText,
-      priority
+      priority,
+      customOrder  // 保存自定义排序的索引位置
     });
   });
 

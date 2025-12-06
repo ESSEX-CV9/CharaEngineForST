@@ -510,7 +510,7 @@ function onEntityPanelClick(ev) {
       
       if (entityName === "{{user}}") {
         // 阻止删除 {{user}} 实体
-        alert("{{user}} 是系统特殊实体，不可删除。");
+        showAlert("{{user}} 是系统特殊实体，不可删除。");
         return;
       }
       
@@ -960,7 +960,7 @@ function copyEntity(panel, sourceCard) {
   const nameInput = sourceCard.querySelector('[data-ce-field="name"]');
   const sourceName = nameInput instanceof HTMLInputElement ? nameInput.value.trim() : "";
   if (sourceName === "{{user}}") {
-    alert("{{user}} 是系统特殊实体，不可复制。");
+    showAlert("{{user}} 是系统特殊实体，不可复制。");
     return;
   }
 

@@ -470,10 +470,10 @@ function bindCollectionManagerEvents(modal) {
  * @param {HTMLElement} modal
  */
 async function handleNewCollection(modal) {
-  const name = prompt('请输入集合名称:');
+  const name = await showPrompt('请输入集合名称:');
   if (!name) return;
   
-  const description = prompt('请输入集合描述（可选）:') || '';
+  const description = await showPrompt('请输入集合描述（可选）:') || '';
   
   const id = `collection_${Date.now()}`;
   
@@ -541,7 +541,7 @@ async function handleDeleteCollection(modal, collectionId) {
     return;
   }
   
-  if (!confirm(`确定要删除集合"${collection.name}"吗？\n此操作不可恢复。`)) {
+  if (!(await showConfirm(`确定要删除集合"${collection.name}"吗？\n此操作不可恢复。`))) {
     return;
   }
   
@@ -622,7 +622,7 @@ async function handleQuickVectorizeSelected(modal) {
   const modelId = modelSelect?.value;
   const chunkStrategy = chunkStrategySelect?.value;
   
-  if (!confirm(`确定要向量化选中的 ${selectedIds.length} 个集合吗？\n模型: ${modelId}\n分块策略: ${chunkStrategy}`)) {
+  if (!(await showConfirm(`确定要向量化选中的 ${selectedIds.length} 个集合吗？\n模型: ${modelId}\n分块策略: ${chunkStrategy}`))) {
     return;
   }
   
@@ -967,7 +967,7 @@ function showImportDialog(parentModal, importData) {
         .map(cb => parseInt(cb.dataset.index));
       
       if (selectedIndices.length === 0) {
-        alert('请至少选择一个集合');
+        showAlert('请至少选择一个集合');
         return;
       }
       
@@ -1007,6 +1007,6 @@ function showNotification(type, message) {
     window.toastr[type](message);
   } else {
     // 降级到alert
-    alert(message);
+    showAlert(message);
   }
 }

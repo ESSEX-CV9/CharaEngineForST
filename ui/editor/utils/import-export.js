@@ -117,7 +117,7 @@ export function showExportDialog(config, characterName) {
   try {
     exportConfig(config, defaultFilename);
   } catch (err) {
-    alert(`导出失败: ${err.message}`);
+    showAlert(`导出失败: ${err.message}`);
   }
 }
 

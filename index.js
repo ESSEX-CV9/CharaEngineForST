@@ -5,6 +5,7 @@ import { openCeStateObserverPanel } from "./ui/state-observer.js";
 import { openParseApiSettings } from "./ui/parse-api-settings.js";
 import { ceGenerateInterceptor } from "./orchestration/interceptor.js";
 import { getCallGenerateService, handleGenerateRequest } from "./services/call-generate.js";
+import { showAlert } from "./ui/dialogs.js";
 
 // ⭐ 条件导入RAG子系统
 let ragSystem = null;
@@ -240,7 +241,7 @@ function wireSettingsForm(container) {
         ragSystem.openLoreManager();
       } catch (err) {
         console.error('[CharacterEngine] 打开世界观设定管理器失败', err);
-        alert(`打开失败: ${err.message}`);
+        showAlert(`打开失败: ${err.message}`);
       }
     });
   }
@@ -261,7 +262,7 @@ function wireSettingsForm(container) {
         ragSystem.openCollectionManager();
       } catch (err) {
         console.error('[CharacterEngine] 打开集合管理器失败', err);
-        alert(`打开失败: ${err.message}`);
+        showAlert(`打开失败: ${err.message}`);
       }
     });
   }
@@ -282,7 +283,7 @@ function wireSettingsForm(container) {
         ragSystem.openRetrievalTester();
       } catch (err) {
         console.error('[CharacterEngine] 打开RAG检索测试器失败', err);
-        alert(`打开失败: ${err.message}`);
+        showAlert(`打开失败: ${err.message}`);
       }
     });
   }

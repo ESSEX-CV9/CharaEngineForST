@@ -263,25 +263,8 @@ function initDragAndResize(root) {
   
   if (!modal || !header) return;
 
-  // 拖动功能
-  header.addEventListener("mousedown", (e) => {
-    // 检查是否在侧边栏模式
-    if (modal.classList.contains("ce-modal-sidebar")) return;
-    
-    if (e.target.closest(".ce-modal-action-btn") || e.target.closest(".ce-modal-close")) {
-      return; // 点击按钮时不触发拖动
-    }
-    
-    dragState = {
-      startX: e.clientX,
-      startY: e.clientY,
-      modalLeft: modal.offsetLeft,
-      modalTop: modal.offsetTop
-    };
-    
-    modal.style.cursor = "move";
-    e.preventDefault();
-  });
+  // 编辑器模式下禁用拖动功能（只保留缩放）
+  // 拖动功能已被禁用，因为会导致闪动问题
 
   // 缩放功能
   const resizeHandles = modal.querySelectorAll(".ce-resize-handle");
@@ -306,20 +289,8 @@ function initDragAndResize(root) {
     });
   });
 
-  // 全局鼠标移动事件
+  // 全局鼠标移动事件（仅处理缩放）
   document.addEventListener("mousemove", (e) => {
-    // 处理拖动
-    if (dragState) {
-      const deltaX = e.clientX - dragState.startX;
-      const deltaY = e.clientY - dragState.startY;
-      
-      modal.style.left = `${dragState.modalLeft + deltaX}px`;
-      modal.style.top = `${dragState.modalTop + deltaY}px`;
-      modal.style.right = "auto";
-      modal.style.bottom = "auto";
-      modal.style.transform = "none";
-    }
-    
     // 处理缩放
     if (resizeState) {
       const deltaX = e.clientX - resizeState.startX;
@@ -343,10 +314,6 @@ function initDragAndResize(root) {
 
   // 全局鼠标释放事件
   document.addEventListener("mouseup", () => {
-    if (dragState) {
-      modal.style.cursor = "";
-      dragState = null;
-    }
     if (resizeState) {
       resizeState = null;
     }
@@ -368,10 +335,10 @@ function toggleSidebarMode(root) {
     modal.classList.remove("ce-modal-sidebar");
     root.classList.remove("ce-modal-backdrop-sidebar");
     
-    // 重置为居中位置
-    modal.style.left = "50%";
-    modal.style.top = "50%";
-    modal.style.transform = "translate(-50%, -50%)";
+    // 重置为居中位置（使用 flex 布局居中）
+    modal.style.left = "";
+    modal.style.top = "";
+    modal.style.transform = "";
     modal.style.right = "";
     modal.style.bottom = "";
     modal.style.width = "";

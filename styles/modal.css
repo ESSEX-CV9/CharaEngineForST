@@ -7,13 +7,19 @@
   inset: 0;
   z-index: 9999; /* 提高到最上层，高于所有其他元素 */
   background: rgba(0, 0, 0, 0.5); /* 编辑器使用半透明背景遮罩 */
-  display: none;
-  align-items: center;
-  justify-content: center;
+  display: none; /* 默认隐藏 */
+  align-items: center; /* 垂直居中 */
+  justify-content: center; /* 水平居中 */
   height: 100vh;
   min-height: 100vh;
   box-sizing: border-box;
   padding: 0;
+}
+
+/* 显示时使用flex布局 */
+.ce-modal-backdrop[style*="display: flex"],
+.ce-modal-backdrop[style*="display:flex"] {
+  display: flex !important;
 }
 
 /* 观察器专用：侧边栏模式的背景保持穿透 */
@@ -27,7 +33,7 @@
 }
 
 .ce-modal {
-  position: relative; /* 编辑器使用相对定位，配合 backdrop 的 flex 居中 */
+  position: relative; /* 悬浮模式：相对定位，配合 backdrop 的 flex 居中 */
   width: min(960px, 96vw);
   max-height: 90vh;
   background: var(--SmartThemeBlurTintColor, #202020);
@@ -39,6 +45,7 @@
   overflow: hidden;
   pointer-events: auto; /* 弹窗本身可交互 */
   color: var(--SmartThemeBodyColor); /* 使用ST主题颜色 */
+  margin: 0; /* 确保没有外边距影响居中 */
 }
 
 /* 观察器专用：默认半透明效果 */
@@ -181,6 +188,12 @@
   background: rgba(0, 0, 0, 0.15);
 }
 
+/* 编辑器模式：标题栏不可拖动（已禁用拖动功能） */
+.ce-modal-backdrop[data-ce-editor-root] .ce-draggable-handle {
+  cursor: default;
+  user-select: none;
+}
+
 /* 观察器专用：可拖动的标题栏 */
 .ce-modal-backdrop[data-ce-state-observer-root] .ce-draggable-handle {
   cursor: move;
@@ -197,6 +210,11 @@
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+/* 编辑器模式：隐藏拖动指示器（已禁用拖动） */
+.ce-modal-backdrop[data-ce-editor-root] .ce-drag-indicator {
+  display: none;
 }
 
 /* 观察器专用：拖动指示器 */
@@ -321,8 +339,8 @@
   cursor: ns-resize;
 }
 
-/* 观察器专用：侧边栏模式隐藏缩放手柄 */
-.ce-modal-backdrop[data-ce-state-observer-root] .ce-modal-sidebar .ce-resize-handle {
+/* 侧边栏模式隐藏缩放手柄 */
+.ce-modal-sidebar .ce-resize-handle {
   display: none;
 }
 
