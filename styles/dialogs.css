@@ -24,10 +24,11 @@
 }
 
 .ce-dialog {
-  background: var(--SmartThemeBodyColor, #222);
+  background: var(--SmartThemeBlurTintColor, var(--black70a, rgba(0, 0, 0, 0.7)));
+  backdrop-filter: blur(10px);
   border: 1px solid var(--SmartThemeBorderColor, #444);
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
   min-width: 320px;
   max-width: 500px;
   animation: ce-dialog-slide-in 0.2s ease-out;

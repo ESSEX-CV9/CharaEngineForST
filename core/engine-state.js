@@ -500,6 +500,38 @@ export function applyChangeSet(prevState, changeSet, parameterDefs = [], entityD
       if (op.characters !== undefined) {
         updated.characters = mergeList(existing.characters, op.characters);
       }
+      
+      // 处理参数绑定/解绑
+      if (op.parameterNames !== undefined) {
+        // 直接设置参数列表（用于 add 操作）
+        updated.parameterNames = Array.isArray(op.parameterNames)
+          ? [...op.parameterNames]
+          : [];
+      } else {
+        // 处理增量绑定/解绑（用于 update 操作）
+        if (!Array.isArray(updated.parameterNames)) {
+          updated.parameterNames = [];
+        }
+        
+        // 绑定参数
+        if (Array.isArray(op.bindParameters)) {
+          for (const param of op.bindParameters) {
+            if (typeof param === 'string' && param.trim()) {
+              const trimmedParam = param.trim();
+              if (!updated.parameterNames.includes(trimmedParam)) {
+                updated.parameterNames.push(trimmedParam);
+              }
+            }
+          }
+        }
+        
+        // 解绑参数
+        if (Array.isArray(op.unbindParameters)) {
+          updated.parameterNames = updated.parameterNames.filter(
+            p => !op.unbindParameters.includes(p)
+          );
+        }
+      }
 
       runtime[name] = updated;
     }

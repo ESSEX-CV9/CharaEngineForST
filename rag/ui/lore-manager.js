@@ -7,6 +7,7 @@ import { needsRevectorization } from '../core/vectorization/vector-store.js';
 import { getConfigForCurrentCharacter, saveConfigForCurrentCharacter } from '../../integration/card-storage.js';
 import { openDocumentEditor } from './document-editor.js';
 import { validateHuggingFaceModel, isModelCached } from '../core/vectorization/model-manager.js';
+import { showConfirm, showPrompt, showAlert } from '../../ui/dialogs.js';
 
 /**
  * 打开世界观设定管理器

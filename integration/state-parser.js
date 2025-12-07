@@ -302,6 +302,176 @@ function parseSceneMetaBlock(sceneMetaBlock) {
 }
 
 /**
+ * 解析实体列表（支持多种格式）
+ * @param {string} text - 包含实体定义的文本
+ * @returns {Array<Object>}
+ */
+function parseEntityList(text) {
+  const entities = [];
+  const lines = text.split('\n');
+  let currentEntity = null;
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    
+    // 检测新实体（以 "- 实体名：" 开头）
+    if (trimmed.startsWith('-')) {
+      // 保存上一个实体
+      if (currentEntity) {
+        entities.push(currentEntity);
+      }
+      
+      // 解析实体名
+      const nameMatch = trimmed.match(/实体名[：:]\s*([^（(]+)/);
+      if (nameMatch) {
+        currentEntity = { name: nameMatch[1].trim() };
+      } else {
+        currentEntity = null;
+      }
+    }
+    // 解析实体属性（缩进行）
+    else if (currentEntity) {
+      const typeMatch = trimmed.match(/类型[：:]\s*(character|location|other)/);
+      if (typeMatch) {
+        currentEntity.type = typeMatch[1];
+      }
+      
+      const infoMatch = trimmed.match(/简介[：:]\s*(.+)/);
+      if (infoMatch) {
+        currentEntity.baseinfo = infoMatch[1].trim();
+      }
+      
+      // 解析参数绑定
+      const bindMatch = trimmed.match(/绑定参数[：:]\s*\[([^\]]*)\]/);
+      if (bindMatch) {
+        const params = bindMatch[1]
+          .split(',')
+          .map(p => p.trim().replace(/["']/g, ''))
+          .filter(p => p);
+        currentEntity.bindParameters = params;
+      }
+      
+      // 解析参数解绑
+      const unbindMatch = trimmed.match(/解绑参数[：:]\s*\[([^\]]*)\]/);
+      if (unbindMatch) {
+        const params = unbindMatch[1]
+          .split(',')
+          .map(p => p.trim().replace(/["']/g, ''))
+          .filter(p => p);
+        currentEntity.unbindParameters = params;
+      }
+    }
+  }
+  
+  // 保存最后一个实体
+  if (currentEntity) {
+    entities.push(currentEntity);
+  }
+  
+  return entities;
+}
+
+/**
+ * 解析实体名称列表（用于 remove）
+ * @param {string} text - 包含实体名的文本
+ * @returns {string[]}
+ */
+function parseEntityNames(text) {
+  const names = [];
+  const lines = text.split('\n');
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('-')) {
+      const nameMatch = trimmed.match(/实体名[：:]\s*([^（(]+)/);
+      if (nameMatch) {
+        names.push(nameMatch[1].trim());
+      } else {
+        // 简单格式：- 路人甲
+        const simpleName = trimmed.substring(1).trim();
+        if (simpleName) {
+          names.push(simpleName);
+        }
+      }
+    }
+  }
+  
+  return names;
+}
+
+/**
+ * 从 <EntityChange> 块中解析实体变更操作
+ * @param {string} entityBlock - EntityChange 块内容
+ * @returns {Array<Object>}
+ */
+function parseEntityChangeBlock(entityBlock) {
+  const entityDelta = [];
+  
+  // 解析 <add> 子块
+  const addBlock = extractXmlBlock(entityBlock, 'add');
+  if (addBlock) {
+    const entities = parseEntityList(addBlock);
+    entities.forEach(e => {
+      const op = {
+        op: 'add',
+        name: e.name,
+        type: e.type || 'other',
+        baseinfo: e.baseinfo || '',
+        meta: { reason: '剧情需要创建新实体' }
+      };
+      
+      // 如果有参数绑定，添加到操作中
+      if (e.bindParameters && e.bindParameters.length > 0) {
+        op.parameterNames = e.bindParameters;
+      }
+      
+      entityDelta.push(op);
+    });
+  }
+  
+  // 解析 <update> 子块
+  const updateBlock = extractXmlBlock(entityBlock, 'update');
+  if (updateBlock) {
+    const updates = parseEntityList(updateBlock);
+    updates.forEach(e => {
+      const op = {
+        op: 'update',
+        name: e.name,
+        meta: { reason: '更新实体信息' }
+      };
+      
+      // 只添加提供的字段
+      if (e.baseinfo !== undefined) {
+        op.baseinfo = e.baseinfo;
+      }
+      if (e.bindParameters && e.bindParameters.length > 0) {
+        op.bindParameters = e.bindParameters;
+      }
+      if (e.unbindParameters && e.unbindParameters.length > 0) {
+        op.unbindParameters = e.unbindParameters;
+      }
+      
+      entityDelta.push(op);
+    });
+  }
+  
+  // 解析 <remove> 子块
+  const removeBlock = extractXmlBlock(entityBlock, 'remove');
+  if (removeBlock) {
+    const names = parseEntityNames(removeBlock);
+    names.forEach(name => {
+      entityDelta.push({
+        op: 'remove',
+        name: name,
+        meta: { reason: '移除不再需要的实体' }
+      });
+    });
+  }
+  
+  return entityDelta;
+}
+
+/**
  * 从 XML 块解析完整的 ChangeSet
  * @param {string} text - 原始文本
  * @returns {ParseResult}
@@ -333,6 +503,13 @@ function parseFromXmlBlocks(text) {
       }
     } else {
       result.warnings.push('CE_UpdateState 块存在但缺少 VarChange 子块');
+    }
+    
+    // 提取 EntityChange 块（在 CE_UpdateState 内部）
+    const entityChangeBlock = extractXmlBlock(updateStateBlock, 'EntityChange');
+    if (entityChangeBlock) {
+      result.entityDelta = parseEntityChangeBlock(entityChangeBlock);
+      result.debugInfo.parsedEntities = result.entityDelta.length;
     }
   }
   

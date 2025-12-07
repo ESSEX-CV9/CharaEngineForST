@@ -4,6 +4,7 @@
 import { getCollectionById, updateCollection } from '../integration/lore-storage.js';
 import { getConfigForCurrentCharacter, saveConfigForCurrentCharacter } from '../../integration/card-storage.js';
 import { previewChunking, suggestChunkPositions, insertDelimitersAtPositions } from '../core/vectorization/chunker.js';
+import { showAlert, showConfirm, showPrompt } from '../../ui/dialogs.js';
 
 /**
  * 打开文档编辑器
@@ -109,14 +110,16 @@ function renderDocumentList(modal, collection) {
     
     return `
       <div class="ce-collapsible-card" data-doc-index="${index}">
-        <div class="ce-collapsible-card-header" style="cursor: pointer;" data-action="toggle-doc" data-doc-index="${index}">
-          <span class="ce-collapsible-toggle">▶</span>
-          <div class="ce-collapsible-header-content">
-            <span class="ce-collapsible-title">${doc.title || `文档 ${index + 1}`}</span>
-            <span class="ce-collapsible-badge">${wordCount} 字</span>
-            ${tags.length > 0 ? `<span class="ce-collapsible-hint">${tags.join(', ')}</span>` : ''}
+        <div class="ce-collapsible-card-header" style="cursor: pointer;">
+          <div data-action="toggle-doc" data-doc-index="${index}" style="flex: 1; display: flex; align-items: center; gap: 10px;">
+            <span class="ce-collapsible-toggle">▶</span>
+            <div class="ce-collapsible-header-content">
+              <span class="ce-collapsible-title">${doc.title || `文档 ${index + 1}`}</span>
+              <span class="ce-collapsible-badge">${wordCount} 字</span>
+              ${tags.length > 0 ? `<span class="ce-collapsible-hint">${tags.join(', ')}</span>` : ''}
+            </div>
           </div>
-          <div style="display: flex; gap: 6px;" onclick="event.stopPropagation();">
+          <div style="display: flex; gap: 6px;">
             <button class="ce-btn ce-btn-small ce-btn-secondary" data-action="delete-doc" data-doc-index="${index}" title="删除">🗑️</button>
           </div>
         </div>

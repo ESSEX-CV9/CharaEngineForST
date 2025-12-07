@@ -4,6 +4,7 @@
 import { loadLoreConfig, saveLoreConfig, getLoreCollections, addCollection, updateCollection, deleteCollection, createEmptyCollection } from '../integration/lore-storage.js';
 import { getConfigForCurrentCharacter, saveConfigForCurrentCharacter } from '../../integration/card-storage.js';
 import { openDocumentEditor } from './document-editor.js';
+import { showAlert, showConfirm, showPrompt } from '../../ui/dialogs.js';
 
 /**
  * 打开独立集合管理器
@@ -92,9 +93,7 @@ function createCollectionManagerModal() {
             <div>
               <label style="display: block; margin-bottom: 6px; font-size: 0.9em; font-weight: 500;">模型选择:</label>
               <select id="ce-quick-model-select" style="width: 100%; padding: 8px; background: var(--black50a, rgba(0,0,0,0.5)); border: 1px solid var(--SmartThemeBorderColor, #444); border-radius: 4px; color: var(--SmartThemeBodyColor, #ddd); font-size: 0.9em;">
-                <option value="Xenova/all-MiniLM-L6-v2">all-MiniLM-L6-v2 (384维)</option>
-                <option value="Xenova/paraphrase-multilingual-MiniLM-L12-v2">paraphrase-multilingual (384维)</option>
-                <option value="Xenova/multilingual-e5-small">multilingual-e5-small (384维)</option>
+                <option value="">加载中...</option>
               </select>
             </div>
             
@@ -143,7 +142,7 @@ function createCollectionManagerModal() {
  * 加载集合管理器数据
  * @param {HTMLElement} modal
  */
-function loadCollectionManagerData(modal) {
+async function loadCollectionManagerData(modal) {
   const charConfig = getConfigForCurrentCharacter();
   const loreConfig = loadLoreConfig(charConfig);
   
@@ -152,6 +151,9 @@ function loadCollectionManagerData(modal) {
   
   // 渲染集合列表
   renderCollectionsList(modal, loreConfig);
+  
+  // 加载模型列表
+  await loadModelList(modal);
 }
 
 /**
@@ -258,7 +260,10 @@ function renderCollectionsList(modal, loreConfig) {
           </div>
           <div style="display: flex; gap: 8px; align-items: flex-start;">
             <button class="ce-btn ce-btn-small" data-action="edit-collection" data-collection-id="${collection.id}" title="编辑文档">
-              <span>✏️</span> 编辑
+              <span>✏️</span> 编辑文档
+            </button>
+            <button class="ce-btn ce-btn-small ce-btn-secondary" data-action="edit-collection-info" data-collection-id="${collection.id}" title="修改名称和描述">
+              <span>📝</span> 修改信息
             </button>
             <button class="ce-btn ce-btn-small ce-btn-secondary" data-action="view-details" data-collection-id="${collection.id}" title="查看详情">
               <span>👁️</span> 详情
@@ -401,6 +406,52 @@ function estimateCollectionSize(collection) {
 }
 
 /**
+ * 加载模型列表到下拉菜单
+ * @param {HTMLElement} modal
+ */
+async function loadModelList(modal) {
+  const modelSelect = modal.querySelector('#ce-quick-model-select');
+  if (!modelSelect) return;
+  
+  try {
+    const { modelCacheManager } = await import('../core/vectorization/model-manager.js');
+    
+    // 获取已缓存的模型
+    const cachedModels = await modelCacheManager.getCachedModels();
+    
+    // 清空现有选项
+    modelSelect.innerHTML = '';
+    
+    if (cachedModels.length === 0) {
+      modelSelect.innerHTML = '<option value="">暂无已缓存模型，请先下载</option>';
+      return;
+    }
+    
+    // 添加已缓存的模型选项
+    for (const modelId of cachedModels) {
+      const option = document.createElement('option');
+      option.value = modelId;
+      
+      // 简化显示模型ID
+      const shortName = modelId.split('/').pop();
+      option.textContent = `${shortName} (${modelId})`;
+      
+      modelSelect.appendChild(option);
+    }
+    
+    // 默认选择第一个模型
+    if (cachedModels.length > 0) {
+      modelSelect.value = cachedModels[0];
+    }
+    
+    console.log(`[CollectionManager] 已加载 ${cachedModels.length} 个已缓存模型`);
+  } catch (err) {
+    console.error('[CollectionManager] 加载模型列表失败:', err);
+    modelSelect.innerHTML = '<option value="">加载失败</option>';
+  }
+}
+
+/**
  * 绑定事件
  * @param {HTMLElement} modal
  */
@@ -444,6 +495,8 @@ function bindCollectionManagerEvents(modal) {
     
     if (action === 'edit-collection') {
       handleEditCollection(modal, collectionId);
+    } else if (action === 'edit-collection-info') {
+      handleEditCollectionInfo(modal, collectionId);
     } else if (action === 'view-details') {
       handleViewDetails(modal, collectionId);
     } else if (action === 'delete-collection') {
@@ -470,10 +523,10 @@ function bindCollectionManagerEvents(modal) {
  * @param {HTMLElement} modal
  */
 async function handleNewCollection(modal) {
-  const name = await showPrompt('请输入集合名称:');
+  const name = await showPrompt('请输入集合名称:', '', '新建集合');
   if (!name) return;
   
-  const description = await showPrompt('请输入集合描述（可选）:') || '';
+  const description = await showPrompt('请输入集合描述（可选）:', '', '集合描述') || '';
   
   const id = `collection_${Date.now()}`;
   
@@ -511,6 +564,61 @@ function handleEditCollection(modal, collectionId) {
   openDocumentEditor(collectionId, () => {
     loadCollectionManagerData(modal);
   });
+}
+
+/**
+ * 处理编辑集合信息（名称和描述）
+ * @param {HTMLElement} modal
+ * @param {string} collectionId
+ */
+async function handleEditCollectionInfo(modal, collectionId) {
+  const charConfig = getConfigForCurrentCharacter();
+  const loreConfig = loadLoreConfig(charConfig);
+  const collection = loreConfig.collections.find(c => c.id === collectionId);
+  
+  if (!collection) {
+    showNotification('error', '集合不存在');
+    return;
+  }
+  
+  // 使用自定义弹窗输入新名称
+  const newName = await showPrompt(
+    '请输入新的集合名称:',
+    collection.name || collection.id,
+    '修改集合名称'
+  );
+  
+  if (!newName) return; // 用户取消
+  
+  // 使用自定义弹窗输入新描述
+  const newDescription = await showPrompt(
+    '请输入新的集合描述（可选）:',
+    collection.description || '',
+    '修改集合描述'
+  );
+  
+  // newDescription 可能是 null（用户取消）或空字符串，都保留原描述
+  const finalDescription = newDescription !== null ? newDescription : collection.description;
+  
+  try {
+    // 更新集合信息
+    const updatedCollection = {
+      ...collection,
+      name: newName,
+      description: finalDescription
+    };
+    
+    const updatedLoreConfig = updateCollection(loreConfig, collectionId, updatedCollection);
+    const updatedConfig = saveLoreConfig(charConfig, updatedLoreConfig);
+    await saveConfigForCurrentCharacter(updatedConfig);
+    
+    // 刷新界面
+    loadCollectionManagerData(modal);
+    showNotification('success', `集合信息已更新`);
+  } catch (err) {
+    console.error('[CollectionManager] 更新集合信息失败:', err);
+    showNotification('error', `更新失败: ${err.message}`);
+  }
 }
 
 /**
@@ -573,34 +681,98 @@ function getSelectedCollectionIds(modal) {
  * @param {HTMLElement} modal
  */
 async function handleQuickDownloadModel(modal) {
-  const modelSelect = modal.querySelector('#ce-quick-model-select');
-  const modelId = modelSelect?.value;
+  // 使用自定义弹窗让用户输入HuggingFace模型链接
+  const modelInput = await showPrompt(
+    '请输入 HuggingFace 模型链接或模型ID:\n例如: Xenova/all-MiniLM-L6-v2\n或: https://huggingface.co/Xenova/all-MiniLM-L6-v2',
+    '',
+    '下载模型'
+  );
   
-  if (!modelId) {
-    showNotification('warning', '请选择模型');
-    return;
-  }
+  if (!modelInput) return;
   
-  showNotification('info', `开始下载模型: ${modelId}...`);
+  let loadingModal = null;
   
   try {
-    const { modelCacheManager } = await import('../core/vectorization/model-manager.js');
+    // 创建验证提示弹窗
+    loadingModal = createModelLoadingModal('正在验证模型...', '', true, false);
+    document.body.appendChild(loadingModal);
+    
+    // 解析输入的模型ID
+    const { parseHuggingFaceUrl, validateHuggingFaceModel, modelCacheManager } = await import('../core/vectorization/model-manager.js');
+    const parsed = parseHuggingFaceUrl(modelInput);
+    
+    let modelId;
+    if (parsed) {
+      modelId = parsed.modelId;
+    } else if (modelInput.includes('/')) {
+      // 假设是 org/model 格式
+      modelId = modelInput.trim();
+    } else {
+      loadingModal.remove();
+      showNotification('error', '无效的模型ID或链接格式');
+      return;
+    }
+    
+    // 验证模型
+    const result = await validateHuggingFaceModel(modelId);
+    
+    if (!result.valid) {
+      loadingModal.remove();
+      showNotification('error', `模型验证失败: ${result.error}`);
+      return;
+    }
+    
+    const modelInfo = result.modelInfo;
     
     // 检查是否已缓存
     const cached = await modelCacheManager.isModelCached(modelId);
     if (cached) {
+      loadingModal.remove();
       showNotification('info', '模型已存在，无需重复下载');
+      // 刷新模型列表
+      await loadModelList(modal);
       return;
     }
     
-    // 下载模型
-    await modelCacheManager.loadModel(modelId, (progress) => {
-      console.log(`[CollectionManager] 模型下载进度: ${progress.percent}%`);
+    // 移除验证弹窗，创建带进度条的下载弹窗
+    loadingModal.remove();
+    loadingModal = createModelLoadingModal('正在下载模型...', `${modelInfo.modelId} (约 ${getModelSizeEstimate(modelInfo.modelId)})`, true, true);
+    document.body.appendChild(loadingModal);
+    
+    // 下载模型（更新弹窗进度）
+    await modelCacheManager.loadModel(modelInfo.modelId, (progress) => {
+      const progressBar = loadingModal?.querySelector('#ce-model-loading-progress-bar');
+      const percentageEl = loadingModal?.querySelector('#ce-model-loading-percentage');
+      const fileEl = loadingModal?.querySelector('#ce-model-loading-file');
+      const completedEl = loadingModal?.querySelector('#ce-model-loading-completed');
+      const totalEl = loadingModal?.querySelector('#ce-model-loading-total');
+      
+      if (progressBar && percentageEl) {
+        const percent = progress.percent || 0;
+        progressBar.style.width = `${percent}%`;
+        percentageEl.textContent = `${percent}%`;
+      }
+      
+      if (fileEl) {
+        fileEl.textContent = progress.file || '准备中...';
+      }
+      
+      if (completedEl && totalEl) {
+        completedEl.textContent = progress.completedFiles || 0;
+        totalEl.textContent = progress.totalFiles || 0;
+      }
     });
     
-    showNotification('success', `模型 ${modelId} 下载成功！`);
+    // 关闭加载弹窗
+    loadingModal.remove();
+    
+    showNotification('success', `模型 ${modelInfo.modelId} 下载成功！`);
+    
+    // 刷新模型列表
+    await loadModelList(modal);
   } catch (err) {
     console.error('[CollectionManager] 模型下载失败:', err);
+    if (loadingModal) loadingModal.remove();
     showNotification('error', `模型下载失败: ${err.message}`);
   }
 }
@@ -1001,6 +1173,75 @@ function showImportDialog(parentModal, importData) {
  * @param {string} type - 'success' | 'error' | 'info' | 'warning'
  * @param {string} message
  */
+/**
+ * 创建模型加载提示弹窗
+ * @param {string} title - 弹窗标题
+ * @param {string} modelId - 模型ID
+ * @param {boolean} showSpinner - 是否显示加载动画
+ * @param {boolean} showProgress - 是否显示进度条
+ * @returns {HTMLElement}
+ */
+function createModelLoadingModal(title, modelId, showSpinner = true, showProgress = false) {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'ce-modal-backdrop';
+  backdrop.setAttribute('data-ce-model-loading', '');
+  backdrop.style.display = 'flex';
+  backdrop.style.zIndex = '10002'; // 确保在主模态窗口之上
+  
+  backdrop.innerHTML = `
+    <div class="ce-modal ce-modal-small">
+      <div class="ce-modal-header">
+        <div class="ce-modal-title">
+          <span>⚙️</span>
+          <span>${title}</span>
+        </div>
+      </div>
+      
+      <div class="ce-modal-body">
+        <div style="padding: 20px;">
+          ${showSpinner ? '<div style="display: flex; justify-content: center; margin-bottom: 16px;"><div class="ce-loading-spinner ce-loading-spinner-large"></div></div>' : ''}
+          <div style="font-weight: 500; margin-bottom: 12px; text-align: center;">${modelId}</div>
+          
+          ${showProgress ? `
+            <div style="margin-bottom: 15px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.9em;">
+                <span>下载进度</span>
+                <span id="ce-model-loading-percentage">0%</span>
+              </div>
+              <div style="width: 100%; height: 20px; background: var(--black50a, rgba(0,0,0,0.5)); border-radius: 10px; overflow: hidden;">
+                <div id="ce-model-loading-progress-bar" class="ce-progress-bar-animated" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--SmartThemeBlurTintColor, #4a9eff), var(--green, #4caf50)); transition: width 0.3s ease;"></div>
+              </div>
+            </div>
+            
+            <div id="ce-model-loading-details" style="font-size: 0.85em; color: var(--SmartThemeQuoteColor, #999); line-height: 1.6;">
+              <div>当前文件: <span id="ce-model-loading-file">准备中...</span></div>
+              <div>已完成: <span id="ce-model-loading-completed">0</span> / <span id="ce-model-loading-total">0</span> 个文件</div>
+            </div>
+          ` : `
+            <div style="color: var(--SmartThemeQuoteColor, #999); font-size: 0.9em; text-align: center;">
+              <div>请稍候</div>
+            </div>
+          `}
+        </div>
+      </div>
+    </div>
+  `;
+  
+  return backdrop;
+}
+
+/**
+ * 获取模型大小估算
+ * @param {string} modelId
+ * @returns {string}
+ */
+function getModelSizeEstimate(modelId) {
+  if (modelId.includes('all-MiniLM-L6-v2')) return '23 MB';
+  if (modelId.includes('paraphrase-multilingual-MiniLM-L12-v2')) return '50 MB';
+  if (modelId.includes('multilingual-e5-small')) return '118 MB';
+  return '未知';
+}
+
 function showNotification(type, message) {
   // 使用SillyTavern的通知系统
   if (window.toastr) {
